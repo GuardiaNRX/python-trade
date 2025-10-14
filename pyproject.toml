@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["backtests/results", "backtests/reports", "data/http_cache", "data/source_snapshots", "data/cache"]
+
+# wykrywaj m.in. nieużywane importy/zmienne i błędy runtime
+select = ["F", "E", "W", "I"]
+ignore = []
+
+[tool.ruff.lint]
+unfixable = ["F401"]  # nie usuwaj automatycznie importów
+
+[tool.ruff.format]
+quote-style = "preserve"

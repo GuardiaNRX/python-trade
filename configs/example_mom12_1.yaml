@@ -1,0 +1,118 @@
+name: mom12_1_cs
+
+universe:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+
+data:
+  source: yfinance
+  csv_dir: data
+  start: "2015-01-01"
+  end: null
+  min_coverage: 0.95
+  region_thresholds:
+    USA: 0.95
+    EU: 0.90
+    APAC: 0.90
+  backfill_policy: flag
+  http_cache:
+    enabled: true
+
+filters:
+  min_price: 5.0
+  adv_window: 60
+  min_adv_usd: 1000000
+
+calendar:
+  exchange: XNYS
+  forward_horizon_sessions: 21
+
+factor:
+  module: factors.momentum_12_1
+  params:
+    lookback_months: 12
+    skip_recent_months: 1
+  sector_neutral: false
+  beta_neutral: false
+  sector_map_csv: data/sector_map.csv
+  beta_window: 252
+
+backtest:
+  rebalance: M
+  long_only: true
+  top_quantile: 0.9
+  bottom_quantile: 0.1
+  max_weight: 0.1
+  fees_bps: 5
+  slippage_bps: 2
+  cash_buffer: 0.01
+  initial_equity: 10000000
+
+impact:
+  enabled: true
+  k_bps: 15.0
+  adv_cap_pct: 0.10
+  lookback_days: 60
+  gamma: 0.25
+  calibration:
+    fills_csv: backtests/results/paper_fills.csv
+    out_json: backtests/results/calibration.json
+
+risk:
+  max_name_weight: 0.15
+  max_sector_weight: 0.4
+  max_gross: 1.5
+  max_turnover: 0.30
+  kill_switch:
+    dd_hard: 0.20
+  vol_target: 0.10
+  dd_clamp:
+    dd_soft: 0.08
+    dd_hard: 0.12
+
+report:
+  out_dir: backtests/reports
+  title: "Raport dzienny – Momentum 12–1"
+
+benchmark:
+  ticker: SPY
+  source: yfinance
+
+alerts:
+  ic_min: 0.03
+  dsr_min: 0.5
+  max_dd: 0.15
+
+trading:
+  broker_positions_csv: backtests/results/broker_positions.csv
+  greylist: []
+  limits:
+    max_orders: 100
+    max_notional: 1000000
+    max_per_symbol: 100000
+
+ic_regime:
+  low_gap: -0.05
+  high_gap: 0.03
+  low_mult: 0.5
+  base_mult: 1.0
+  high_mult: 1.25
+
+runtime:
+  max_total_sec: 1200
+  degrade_threshold: 0.9
+
+monitor:
+  max_added: 100
+  max_removed: 100
+
+ibkr:
+  host: ${IB_HOST}
+  port: ${IB_PORT}
+  client_id: ${IB_CLIENT_ID}
+  exchange: SMART
+  currency: USD
+  account: null
