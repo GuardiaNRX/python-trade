@@ -130,17 +130,21 @@ def main():
             map_errs = validate_mapping(mapping, prices.columns.tolist())
             if map_errs:
                 msg = ":no_entry: Map sanity FAIL:\n- " + "\n- ".join(map_errs)
-                post_message(os.environ.get("SLACK_CHANNEL", "#alpha-lab"), msg)
+                if os.environ.get("SLACK_BOT_TOKEN") and not args.dry_run:
+                    post_message(os.environ.get("SLACK_CHANNEL", "#alpha-lab"), msg)
+                else:
+                    print(msg)
                 log_json("ERROR", None, "map_sanity_fail", errors=map_errs)
                 sys.exit(7)
             thr = config.get("data", {}).get("region_thresholds", {"USA": 0.95, "EU": 0.90, "APAC": 0.90})
             cov, bad = region_freshness_gate(prices, mapping, thr)
             if bad:
                 details = ', '.join([f"{k}:{v:.1%}" for k, v in cov.items()])
-                post_message(
-                    os.environ.get("SLACK_CHANNEL", "#alpha-lab"),
-                    f":no_entry: Freshness FAIL {bad} ({details}) — przerywam run."
-                )
+                fail_msg = f":no_entry: Freshness FAIL {bad} ({details}) — przerywam run."
+                if os.environ.get("SLACK_BOT_TOKEN") and not args.dry_run:
+                    post_message(os.environ.get("SLACK_CHANNEL", "#alpha-lab"), fail_msg)
+                else:
+                    print(fail_msg)
                 log_json("ERROR", None, "freshness_fail", details=details, failing_region=bad)
                 sys.exit(4)
             log_json("INFO", None, "freshness_ok", coverage=cov)
@@ -349,6 +353,23 @@ def main():
         weight_changes = weights.diff().abs().fillna(0.0)
         dollars_traded_df = compute_dollars_traded(weight_changes, initial_equity, prices)
 
+        # --- Bezpieczne wyrównanie indeksów/kolumn z ADV i spread ---
+        def _align_two(df_a, df_b, fill=0.0):
+            idx = df_a.index.intersection(df_b.index)
+            cols = df_a.columns.intersection(df_b.columns)
+            aligned_a = df_a.reindex(index=idx, columns=cols).fillna(fill)
+            aligned_b = df_b.reindex(index=idx, columns=cols).fillna(fill)
+            return aligned_a, aligned_b, df_a.index.difference(idx), df_a.columns.difference(cols)
+
+        adv_usd_aligned, _, _, _ = _align_two(adv_usd, prices)
+        dollars_traded_df, adv_usd, dropped_days, dropped_syms = _align_two(dollars_traded_df, adv_usd_aligned)
+        if len(dropped_days) or len(dropped_syms):
+            warn_msg = f":warning: ALIGN: usunięto dni={len(dropped_days)} symbole={len(dropped_syms)} dla ADV/Δ$"
+            if os.environ.get("SLACK_BOT_TOKEN") and not args.dry_run:
+                post_message(os.environ.get("SLACK_CHANNEL", "#alpha-lab"), warn_msg)
+            else:
+                print(warn_msg)
+
         # ============================================================
         # [9/12] Impact costs + Spread costs (Corwin-Schultz)
         # ============================================================
@@ -388,7 +409,9 @@ def main():
             impact_costs_sqrt = square_root_impact_cost(dollars_traded_df, adv_usd, k_bps=k_series)
 
             # Spread cost
-            spread_cost_series = spread_cost_fraction(weight_changes, spr)
+            spr = spr.reindex(index=weight_changes.index, columns=weight_changes.columns).fillna(0.0)
+            weight_changes_aligned = weight_changes.reindex(index=spr.index, columns=spr.columns).fillna(0.0)
+            spread_cost_series = spread_cost_fraction(weight_changes_aligned, spr)
             avg_spread_cost = spread_cost_series.mean()
             print(f"  Średni spread cost: {avg_spread_cost:.4f} ({avg_spread_cost*10000:.2f}bps)")
 
@@ -518,8 +541,8 @@ def main():
         if bench_ticker:
             try:
                 bench_data = pd.read_csv(f"data/{bench_ticker}.csv", parse_dates=["Date"], index_col="Date")
-                bench_prices = bench_data["Adj Close"]
-                bench_ret = bench_prices.pct_change()
+                bench_prices = bench_data["Adj Close"].replace([np.inf, -np.inf], np.nan).fillna(method="ffill")
+                bench_ret = bench_prices.pct_change().fillna(0.0)
                 ir = information_ratio(portfolio_returns_net, bench_ret, freq=252)
                 alpha, beta = alpha_beta(portfolio_returns_net, bench_ret, freq=252)
                 print(f"  IR: {ir:.4f}, Alpha: {alpha:.2%}, Beta: {beta:.2f}")
@@ -552,6 +575,11 @@ def main():
             print(f"  Delta obliczona z różnicy wag (fallback).")
 
         # b) Plan TWAP
+        common_cols = prices.columns.intersection(adv_usd.columns).intersection(spr.columns)
+        prices = prices.reindex(columns=common_cols).fillna(method="ffill").fillna(method="bfill")
+        adv_usd = adv_usd.reindex(columns=common_cols).fillna(0.0)
+        spr = spr.reindex(columns=common_cols).fillna(0.0)
+
         plan = plan_twap(
             delta_w=(delta_dollars / (initial_equity * prices.iloc[-1])).fillna(0.0),
             prices=prices,
@@ -782,7 +810,7 @@ _Pipeline: OHLCV → PIT eligibility → faktor → Ridge neutralization → kal
         hist_dir = os.path.dirname(hist_path)
         if hist_dir:
             os.makedirs(hist_dir, exist_ok=True)
-        append_slo(hist_path, datetime.utcnow().strftime("%Y-%m-%d"), {"total": runtime.elapsed()})
+        append_slo(hist_path, datetime.utcnow().strftime("%Y-%m-%d"), {"t_total": runtime.elapsed()})
         twarn = rolling_warn(
             hist_path,
             "t_total",
