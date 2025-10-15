@@ -1,9 +1,8 @@
 """
 Moduł polityki egzekucji: planowanie zleceń TWAP z limitami.
 """
-import pandas as pd
 import numpy as np
-from typing import Optional
+import pandas as pd
 
 
 def plan_twap(
@@ -15,48 +14,45 @@ def plan_twap(
     window_minutes: int = 60,
     slices: int = 6,
     adv_cap: float = 0.1,
-    gamma: float = 0.25
+    gamma: float = 0.25,
 ) -> pd.DataFrame:
     """
     Zwraca DataFrame z planem zleceń TWAP: slice_time, symbol, side, qty_usd, limit_price.
-
-    Args:
-        delta_w: Seria zmian wag (docelowa - poprzednia) per symbol
-        prices: DataFrame z cenami
-        adv_usd: Average Daily Volume w USD
-        spread: Spread bid-ask (frakcja)
-        equity: Kapitał (equity) do alokacji
-        window_minutes: Okno czasowe TWAP w minutach
-        slices: Liczba kroków TWAP
-        adv_cap: Cap na % ADV per dzień
-        gamma: Mnożnik spreadu dla limitu cenowego
-
-    Returns:
-        DataFrame z kolumnami: slice_time, symbol, side, qty_usd, limit_price
     """
-    # Docelowa kwota USD do przesunięcia na symbol
-    dollars = (delta_w.abs() * equity * prices.iloc[-1]).fillna(0.0)
+    px = (
+        prices.iloc[-1]
+        .replace([np.inf, -np.inf], np.nan)
+        .fillna(method="ffill")
+        .fillna(method="bfill")
+        .fillna(0.0)
+    )
+    dollars = (delta_w.abs() * equity * px).fillna(0.0)
 
-    # Cap per dzień
-    cap_dollars = (adv_usd.iloc[-1] * adv_cap).fillna(0.0)
+    adv_last = adv_usd.iloc[-1] if not adv_usd.empty else pd.Series(0.0, index=px.index)
+    cap_base = adv_last.fillna(0.0)
+    cap_dollars = (cap_base * adv_cap).fillna(0.0)
     dollars = dollars.clip(upper=cap_dollars)
 
+    spr_last = spread.iloc[-1] if not spread.empty else pd.Series(dtype=float)
+
     rows = []
-    for sym in dollars.index:
-        total = float(dollars[sym])
+    for sym, total in dollars.items():
+        total = float(total)
         if total <= 0:
             continue
 
-        per_slice = total / slices
-        side = "BUY" if delta_w[sym] > 0 else "SELL"
-        mid = float(prices.iloc[-1][sym])
+        mid = float(px.get(sym, 0.0))
+        if mid <= 0:
+            continue
 
-        # Limit price: mid ± γ·spread
-        spr = float(spread.iloc[-1].get(sym, 0.0))
-        lim = mid * (1 + (gamma * spr) * (1 if side == "BUY" else -1))
+        per_slice = total / slices
+        side = "BUY" if float(delta_w.get(sym, 0.0)) > 0 else "SELL"
+        spr_val = float(spr_last.get(sym, 0.0))
+        lim = mid * (1 + (gamma * spr_val) * (1 if side == "BUY" else -1))
 
         for i in range(slices):
-            t = pd.Timestamp.utcnow().floor("min") + pd.Timedelta(minutes=i * window_minutes // slices)
-            rows.append([t, sym, side, per_slice, lim])
+            offset = pd.Timedelta(minutes=i * window_minutes // slices)
+            tstamp = pd.Timestamp.utcnow().floor("min") + offset
+            rows.append([tstamp, sym, side, per_slice, lim])
 
     return pd.DataFrame(rows, columns=["slice_time", "symbol", "side", "qty_usd", "limit_price"])

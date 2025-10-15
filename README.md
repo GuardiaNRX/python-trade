@@ -28,8 +28,8 @@ Automatyczny pipeline do alpha research – strategia momentum 12-1 z pełnym mo
 ### 1. Klonowanie repozytorium
 
 ```bash
-git clone <repo-url>
-cd Python-trading
+    git clone <repo-url>
+    cd python-trade
 ```
 
 ### 2. Utworzenie środowiska wirtualnego
@@ -38,7 +38,7 @@ cd Python-trading
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 # lub
-.venv\Scripts\activate  # Windows
+    .venv\Scripts\Activate.ps1  # Windows (PowerShell)
 ```
 
 ### 3. Instalacja zależności

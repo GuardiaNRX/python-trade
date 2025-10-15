@@ -6,7 +6,6 @@ Generuje metryki Priorytetu A, wykresy i wysyła raport na Slack.
 import argparse
 import sys
 import os
-import io
 import time
 from datetime import datetime
 import yaml
@@ -17,7 +16,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # INSERT HERE — IMPORTS (nowe moduły z 104.md)
-from utils.data_io import load_ohlcv, eligibility_mask
+from utils.data_io import load_ohlcv
 from utils.snapshot import save_snapshot
 from utils.atomic import atomic_write_text
 from utils.run_id import make_run_id
@@ -56,9 +55,9 @@ from utils.impact import (
     spread_cost_fraction
 )
 from utils.execution import apply_rebalance_weights, rebalance_signal
-from utils.reporting import ensure_dir, write_markdown
+from utils.reporting import ensure_dir
 from utils.plotting import equity_curve, histogram_returns, rolling_ic_plot
-from utils.slack_client import SlackNotifier
+from utils.slo_history import append_slo, rolling_warn
 from utils.pbo import compute_pbo_simple
 from utils.freshness_multi import region_freshness_gate
 from utils.map_sanity import validate_mapping
@@ -95,6 +94,8 @@ def main():
                 max_total_sec=config.get("runtime", {}).get("max_total_sec", 1200),
                 degrade_threshold=config.get("runtime", {}).get("degrade_threshold", 0.9)
             )
+            runtime.start("total")
+            impact_config = config.get("impact", {})
 
             name = config["name"]
             print(f"=== Raport dzienny: {name} ===")
@@ -125,7 +126,7 @@ def main():
 
             # INSERT HERE — FRESHNESS + SNAPSHOT + RUN_ID (104.md sekcja 2)
             # Freshness per-region/exchange (nowy mechanizm)
-                        mapping = pd.read_csv("data/symbol_exchange_map.csv")  # symbol,exchange,region
+            mapping = pd.read_csv("data/symbol_exchange_map.csv")  # symbol,exchange,region
             map_errs = validate_mapping(mapping, prices.columns.tolist())
             if map_errs:
                 msg = ":no_entry: Map sanity FAIL:\n- " + "\n- ".join(map_errs)
@@ -148,12 +149,31 @@ def main():
             snap_meta = save_snapshot(prices, volume, high, low)
             runid = make_run_id(_cfg_hash(config), snap_meta["snapshot_id"])
 
-            # Start run tracking (109.md)
-            from utils.run_status import start_run
-            from utils.logger_json import log_json
+            # Approval dla produkcyjnych runów (paper mode)
             start_run(runid, meta={"cfg_hash": _cfg_hash(config), "snapshot_id": snap_meta["snapshot_id"]})
             log_json("INFO", runid, "run_start", universe=len(prices.columns))
 
+            # Precompute: ADV i robust spread (potrzebne do impact i do plan_twap)
+            adv_usd = compute_adv_usd(
+                prices,
+                volume,
+                lookback=impact_config.get("lookback_days", 60),
+            )
+            if adv_usd.empty:
+                adv_usd = pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
+
+            spr, hl_outlier_mask = robust_cs_spread(
+                high,
+                low,
+                volume,
+                window=2,
+                sanity_sigma=5.0,
+                median_window=20,
+                fallback_bps=25.0,
+            )
+            if spr.empty:
+                spr = pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
+                hl_outlier_mask = pd.DataFrame(False, index=prices.index, columns=prices.columns)
             # ============================================================
             # [2/12] Filtry płynności (dynamiczna maska) + birth/death
             # ============================================================
@@ -266,83 +286,80 @@ def main():
         rebalance_days_count = rebalance_flags.sum()
         print(f"  Częstotliwość: {rebalance_freq}, liczba rebalansów: {rebalance_days_count}")
 
-            # Generuj wagi z carry-over między rebalansami
-            weights = apply_rebalance_weights(
-                ranks=factor_ranks,
-                top_quantile=bt_config["top_quantile"],
-                bottom_quantile=bt_config["bottom_quantile"],
-                long_only=bt_config["long_only"],
-                max_weight=bt_config["max_weight"],
-                cash_buffer=bt_config.get("cash_buffer", 0.0),
-                rebalance_flags=rebalance_flags,
-                eligibility_mask=elig_tminus1  # Use T-1 eligibility
-            )
+        # Generuj wagi z carry-over między rebalansami
+        weights = apply_rebalance_weights(
+            ranks=factor_ranks,
+            top_quantile=bt_config["top_quantile"],
+            bottom_quantile=bt_config["bottom_quantile"],
+            long_only=bt_config["long_only"],
+            max_weight=bt_config["max_weight"],
+            cash_buffer=bt_config.get("cash_buffer", 0.0),
+            rebalance_flags=rebalance_flags,
+            eligibility_mask=elig_tminus1  # Use T-1 eligibility
+        )
 
-            # INSERT HERE — IC-REGIME SCALER (104.md + 107.md)
-            ic_cfg = config.get("ic_regime", {})
-            ic_mult, _ic_state = decide_multiplier(
-                ic3=float(ic_3m) if pd.notna(ic_3m) else None,
-                ic12=float(ic_12m) if pd.notna(ic_12m) else None,
-                cfg=ICRegimeCfgH(
-                    low_enter=ic_cfg.get("low_enter", -0.05),
-                    low_exit=ic_cfg.get("low_exit", -0.02),
-                    high_enter=ic_cfg.get("high_enter", 0.03),
-                    high_exit=ic_cfg.get("high_exit", 0.01),
-                    low_mult=ic_cfg.get("low_mult", 0.50),
-                    base_mult=ic_cfg.get("base_mult", 1.00),
-                    high_mult=ic_cfg.get("high_mult", 1.25),
-                    min_streak=ic_cfg.get("min_streak", 10),
-                ),
-                state_path=ic_cfg.get("state_path", "backtests/results/ic_state.json"),
-            )
-            weights = (weights * ic_mult).clip(-2.0, 2.0)
-            print(f"  IC-regime multiplier: {ic_mult:.2f}")
+        # INSERT HERE — IC-REGIME SCALER (104.md + 107.md)
+        ic_cfg = config.get("ic_regime", {})
+        ic_mult, _ic_state = decide_multiplier(
+            ic3=float(ic_3m) if pd.notna(ic_3m) else None,
+            ic12=float(ic_12m) if pd.notna(ic_12m) else None,
+            cfg=ICRegimeCfgH(
+                low_enter=ic_cfg.get("low_enter", -0.05),
+                low_exit=ic_cfg.get("low_exit", -0.02),
+                high_enter=ic_cfg.get("high_enter", 0.03),
+                high_exit=ic_cfg.get("high_exit", 0.01),
+                low_mult=ic_cfg.get("low_mult", 0.50),
+                base_mult=ic_cfg.get("base_mult", 1.00),
+                high_mult=ic_cfg.get("high_mult", 1.25),
+                min_streak=ic_cfg.get("min_streak", 10),
+            ),
+            state_path=ic_cfg.get("state_path", "backtests/results/ic_state.json"),
+        )
+        weights = (weights * ic_mult).clip(-2.0, 2.0)
+        print(f"  IC-regime multiplier: {ic_mult:.2f}")
 
-            # INSERT HERE — HARD LIMITS (104.md sekcja 4)
-            rl = config.get("risk", {})
-            weights = enforce_single_name_limit(weights, rl.get("max_name_weight", 0.15))
-            weights = enforce_gross_limit(weights, rl.get("max_gross", 1.5))
-            if rl.get("max_turnover") is not None:
-                weights = limit_turnover(weights, rl["max_turnover"])
+        # INSERT HERE — HARD LIMITS (104.md sekcja 4)
+        rl = config.get("risk", {})
+        weights = enforce_single_name_limit(weights, rl.get("max_name_weight", 0.15))
+        weights = enforce_gross_limit(weights, rl.get("max_gross", 1.5))
+        if rl.get("max_turnover") is not None:
+            weights = limit_turnover(weights, rl["max_turnover"])
 
-            print(f"  Weights shape: {weights.shape}")
-            print(f"  Średnia liczba pozycji per dzień: {(weights != 0).sum(axis=1).mean():.1f}")
+        print(f"  Weights shape: {weights.shape}")
+        print(f"  Średnia liczba pozycji per dzień: {(weights != 0).sum(axis=1).mean():.1f}")
 
-            # ============================================================
-            # [7/12] Zwroty portfela
-            # ============================================================
-            print("[7/12] Obliczanie zwrotów portfela...")
-            daily_returns = prices.pct_change()
-            portfolio_returns = (weights.shift(1) * daily_returns).sum(axis=1)
-            portfolio_returns = portfolio_returns.dropna()
+        # ============================================================
+        # [7/12] Zwroty portfela
+        # ============================================================
+        print("[7/12] Obliczanie zwrotów portfela...")
+        daily_returns = prices.pct_change()
+        portfolio_returns = (weights.shift(1) * daily_returns).sum(axis=1)
+        portfolio_returns = portfolio_returns.dropna()
 
-            # ============================================================
-            # [8/12] Turnover + dollars traded
-            # ============================================================
-            print("[8/12] Obliczanie turnover...")
-            turnover_series = turnover(weights)
-            avg_turnover = turnover_series.mean()
-            print(f"  Średni turnover: {avg_turnover:.2%}")
+        # ============================================================
+        # [8/12] Turnover + dollars traded
+        # ============================================================
+        print("[8/12] Obliczanie turnover...")
+        turnover_series = turnover(weights)
+        avg_turnover = turnover_series.mean()
+        print(f"  Średni turnover: {avg_turnover:.2%}")
 
-            # Dollars traded
-            initial_equity = bt_config.get("initial_equity", 10_000_000)
-            weight_changes = weights.diff().abs()
-            dollars_traded_df = compute_dollars_traded(weight_changes, initial_equity, prices)
+        # Dollars traded
+        initial_equity = bt_config.get("initial_equity", 10_000_000)
+        weight_changes = weights.diff().abs()
+        dollars_traded_df = compute_dollars_traded(weight_changes, initial_equity, prices)
 
         # ============================================================
         # [9/12] Impact costs + Spread costs (Corwin-Schultz)
         # ============================================================
         print("[9/12] Obliczanie impact costs + spread costs...")
-        impact_config = config.get("impact", {})
+
+        gamma_today = impact_config.get("gamma", 0.25)
+        outlier_pct = 0.0
         impact_enabled = impact_config.get("enabled", False)
 
         if impact_enabled:
-            # ADV USD
-            adv_usd = compute_adv_usd(
-                prices, volume,
-                lookback=impact_config.get("lookback_days", 60)
-            )
-
+            
             # Square-root impact cost
             impact_costs_sqrt = square_root_impact_cost(
                 dollars_traded_df,
@@ -355,15 +372,7 @@ def main():
             avg_impact_cost = impact_cost_series.mean()
             print(f"  Średni market impact: {avg_impact_cost:.4f} ({avg_impact_cost*10000:.2f}bps)")
 
-            # SECTION 5 (104.md): Robust spread + segmented k costs
-            print("  Obliczanie robust spread costs (Corwin-Schultz z outlier detection)...")
-            spr, hl_outlier_mask = robust_cs_spread(
-                high, low, volume,
-                window=2,
-                sanity_sigma=5.0,
-                median_window=20,
-                fallback_bps=25.0
-            )
+            print("  Obliczanie robust spread costs (z outlier detection)...")
 
             # Segmented k per symbol (tercyle spreadu)
             calib_path = config.get("impact", {}).get("calibration", {}).get("out_json", "backtests/results/calibration.json")
@@ -600,6 +609,8 @@ def main():
             f"**Zakres danych:** {config['data']['start']} – {prices.index[-1].strftime('%Y-%m-%d')}  \\\n"
             f"**Universe:** {len(config['universe'])} tickerów → średnio {eligible_count:.1f} eligible per dzień (Point-in-Time)\n"
         )
+        # Podsumowanie freshness per-region
+        cov_line = ", ".join([f"{k}:{v:.1%}" for k, v in cov.items()])
 
         # Body raportu
         body = f"""
@@ -607,7 +618,7 @@ def main():
 
 ## Data Health
 
-- **Freshness:** Expected={exp.strftime('%Y-%m-%d')}, Coverage={cov:.1%} {'✓' if ok else '⚠ FAIL'}
+- **Freshness (per region):** {cov_line}
 - **H/L Outliers:** {outlier_pct:.2f}% wykrytych (robust spread filter)
 - **Missing data (ostatni dzień):** {prices.iloc[-1].isna().mean()*100:.1f}%
 - **Backfill detection:** {'✓ brak' if not snap_meta.get('backfill_detected', False) else '⚠ wykryto backfill'}
@@ -649,7 +660,7 @@ def main():
 
         # Dodaj benchmark metrics jeśli dostępne
         if bench_ticker and ir != 0.0:
-            report_md += f"""
+            body += f"""
 ### Benchmark Analysis (vs {bench_ticker})
 
 | Metryka | Wartość |
@@ -660,7 +671,7 @@ def main():
 
 """
 
-        report_md += f"""
+        body += f"""
 ---
 
 ## Koszty i capacity (3-component model)
@@ -697,13 +708,13 @@ def main():
 ## Wykresy
 
 ### Krzywa kapitału
-![Equity Curve]({today_str}_equity.png)
+![Equity Curve]({os.path.basename(eq_path)})
 
 ### Histogram zwrotów
-![Histogram]({today_str}_hist.png)
+![Histogram]({os.path.basename(hist_path)})
 
 ### Rolling Rank IC (60d)
-![Rolling IC]({today_str}_rolling_ic.png)
+![Rolling IC]({os.path.basename(ric_path)})
 
 ---
 
@@ -763,10 +774,26 @@ _Pipeline: OHLCV → PIT eligibility → faktor → Ridge neutralization → kal
 
         slo_alerts = alert_thresholds(slo)
 
+        # Trend 5d po czasie całkowitym (t_total)
+        hist_path = config.get("report", {}).get("slo_history", "backtests/results/slo_history.csv")
+        hist_dir = os.path.dirname(hist_path)
+        if hist_dir:
+            os.makedirs(hist_dir, exist_ok=True)
+        append_slo(hist_path, datetime.utcnow().strftime("%Y-%m-%d"), {"total": runtime.elapsed()})
+        twarn = rolling_warn(
+            hist_path,
+            "t_total",
+            window=5,
+            budget=config.get("runtime", {}).get("max_total_sec", 1200),
+            factor=1.2,
+        )
+        if twarn:
+            slo_alerts.append(f"SLO trend: {twarn}")
+
         # Summary dla Slacka
         summary = (
-            f"**{config.get('report', {}).get('title', 'Raport')}** — {now_utc}\n"
-            f"Run: `{runid}`  •  Snapshot: `{snap_meta['snapshot_id']}`"
+            f"**{config.get('report', {}).get('title', 'Raport')}** - {now_utc}\n"
+            f"Run: `{runid}` | Snapshot: `{snap_meta['snapshot_id']}`"
         )
 
         triggered = []
