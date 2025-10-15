@@ -346,7 +346,7 @@ def main():
 
         # Dollars traded
         initial_equity = bt_config.get("initial_equity", 10_000_000)
-        weight_changes = weights.diff().abs()
+        weight_changes = weights.diff().abs().fillna(0.0)
         dollars_traded_df = compute_dollars_traded(weight_changes, initial_equity, prices)
 
         # ============================================================
@@ -414,7 +414,7 @@ def main():
         # [10/12] Capacity violations
         # ============================================================
         print("[10/12] Sprawdzanie capacity violations...")
-        if impact_enabled:
+        if impact_enabled and not dollars_traded_df.empty and not adv_usd.empty:
             violations_df = capacity_violations(
                 dollars_traded_df,
                 adv_usd,
@@ -422,7 +422,10 @@ def main():
             )
 
             # % dni z naruszeniami
-            violations_pct = (violations_df.sum(axis=1) > 0).sum() / len(violations_df) * 100
+            days_count = len(violations_df)
+            violations_pct = (
+                (violations_df.sum(axis=1) > 0).sum() / days_count * 100
+            ) if days_count > 0 else 0.0
             print(f"  Capacity violations: {violations_pct:.1f}% dni")
         else:
             violations_pct = 0.0
