@@ -3,9 +3,10 @@ Moduł broker: Paper broker z retry + timeouts.
 """
 import os
 import time
-import pandas as pd
 from dataclasses import dataclass
 from typing import List
+
+import pandas as pd
 
 
 @dataclass

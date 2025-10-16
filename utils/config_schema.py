@@ -1,7 +1,7 @@
 """
 Moduł walidacji config schema: fail-fast z czytelnym błędem.
 """
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 def _in_01(x) -> bool:

@@ -1,8 +1,9 @@
 """
 Moduł throttle zleceń: limity na liczbę, notional, per-symbol + greylista.
 """
+from typing import Optional, Set
+
 import pandas as pd
-from typing import Set, Optional
 
 
 def apply_throttle(

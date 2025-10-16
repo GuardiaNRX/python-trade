@@ -43,3 +43,4 @@ backtests/results/
 # Logs
 *.log
 logs/
+*.gz

@@ -1,9 +1,11 @@
 """
 Moduł robust spread: Corwin-Schultz spread z sanity checks na HL outliers.
 """
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Tuple
+
 from .impact import corwin_schultz_spread
 
 

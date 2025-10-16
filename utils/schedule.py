@@ -2,7 +2,7 @@
 Moduł do harmonogramowania zadań (cron + Prefect).
 """
 import argparse
-from typing import Optional
+
 import yaml
 
 
@@ -34,9 +34,9 @@ def prefect_flow(config_path: str) -> None:
         return
     
     # Import modułów projektu
-    from utils.data_io import load_prices
     from factors.momentum_12_1 import compute_factor, percentile_rank
-    from utils.metrics import rank_ic, sharpe, calmar, max_drawdown
+    from utils.data_io import load_prices
+    from utils.metrics import rank_ic
     
     @task(name="Fetch Data")
     def task_fetch(config):

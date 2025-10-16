@@ -1,9 +1,10 @@
 """
 Moduł do zapisywania raportów i metadanych.
 """
-import os
 import json
-from typing import Dict, Any
+import os
+from typing import Any, Dict
+
 import pandas as pd
 
 

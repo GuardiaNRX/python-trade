@@ -1,7 +1,6 @@
 """
 Skrypt smoke replay: uruchamia report z ostatnim snapshotem (deterministyczność).
 """
-import os
 import sys
 from subprocess import run
 

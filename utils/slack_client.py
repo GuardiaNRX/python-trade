@@ -1,10 +1,11 @@
 """
 Moduł do komunikacji ze Slackiem z retry i idempotencją.
 """
+import hashlib
 import os
 import time
-import hashlib
 from typing import Optional
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -15,10 +16,10 @@ def _idempotency_key(text: str) -> str:
 
 
 # Globalna instancja - singleton
-_notifier_instance: Optional[SlackNotifier] = None
+_notifier_instance: Optional["SlackNotifier"] = None
 
 
-def _get_notifier() -> SlackNotifier:
+def _get_notifier() -> "SlackNotifier":
     """Zwraca globalną instancję SlackNotifier (singleton)."""
     global _notifier_instance
     if _notifier_instance is None:
@@ -101,7 +102,7 @@ class SlackNotifier:
                         initial_comment="Raport (pełna treść)"
                     )
                 else:
-                    response = self.client.chat_postMessage(
+                    self.client.chat_postMessage(
                         channel=target_channel,
                         text=text,
                         username="alpha-lab bot",
@@ -147,7 +148,7 @@ class SlackNotifier:
 
         for i in range(retries):
             try:
-                response = self.client.files_upload_v2(
+                self.client.files_upload_v2(
                     channel=target_channel,
                     file=file_content,
                     filename=filename,

@@ -3,6 +3,7 @@ Moduł atomic writes: atomowe zapisy plików (text, CSV, Parquet).
 """
 import os
 import tempfile
+
 import pandas as pd
 
 

@@ -1,9 +1,10 @@
 """
 Moduł freshness multi-venue: sprawdzanie świeżości per region (USA/EU/APAC).
 """
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
 import pandas_market_calendars as mcal
-from typing import Dict, List, Tuple, Optional
 
 
 def expected_last_session_for_exchanges(

@@ -3,8 +3,6 @@ Moduł do pracy z kalendarzem sesji giełdowych.
 Używa pandas-market-calendars do obliczania forward returns po N sesjach.
 """
 import pandas as pd
-import numpy as np
-from typing import Optional
 
 try:
     import pandas_market_calendars as mcal

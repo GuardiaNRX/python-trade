@@ -1,11 +1,12 @@
+﻿"""
+ModuĹ‚ kalibracji kosztĂłw: porĂłwnanie modeled vs realized slippage.
 """
-Moduł kalibracji kosztów: porównanie modeled vs realized slippage.
-"""
-import os
 import json
-import pandas as pd
+import os
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
+import pandas as pd
 
 
 def calibrate_costs(
@@ -18,12 +19,13 @@ def calibrate_costs(
 
     Args:
         fills_csv: CSV z wykonanymi zleceniami (ts, symbol, side, exec_price, mid_price, adv_usd, notional)
-        out_json: Ścieżka do JSON z rekomendacjami
-        ew_halflife_days: Półokres EWMA
+        out_json: ĹšcieĹĽka do JSON z rekomendacjami
+        ew_halflife_days: PĂłĹ‚okres EWMA
 
     Returns:
         Dict z rekomendacjami: k_bps_recommended, gamma_recommended
     """
+    _ = ew_halflife_days  # placeholder for future EWMA weighting
     if not os.path.exists(fills_csv):
         return None
 
@@ -35,12 +37,12 @@ def calibrate_costs(
         * np.where(df["side"].str.upper() == "BUY", 1, -1)
     )
 
-    # Estymacja k_bps względem sqrt(notional/ADV)
+    # Estymacja k_bps wzglÄ™dem sqrt(notional/ADV)
     ratio = (df["notional"] / df["adv_usd"]).clip(lower=1e-9)
     x = np.sqrt(ratio)
     k_est = (df["slip_frac"].mean() / x.mean()) * 1e4  # bps
 
-    # Estymacja gamma ~ średnia |slip| / (spread/2)
+    # Estymacja gamma ~ Ĺ›rednia |slip| / (spread/2)
     if "spread_frac" in df.columns:
         gamma_est = (df["slip_frac"].abs() / (df["spread_frac"] / 2).replace(0, np.nan)).median()
     else:
@@ -98,7 +100,7 @@ def update_calibration_history(
         rec: Dict z rekomendacjami (k_rec, gamma_rec)
         modeled_bps: Modelowany koszt (bps)
         realized_bps: Realized koszt z fills (bps)
-        hist_path: Ścieżka do CSV historii
+        hist_path: ĹšcieĹĽka do CSV historii
     """
     row = {
         "date": pd.Timestamp.utcnow().date().isoformat(),

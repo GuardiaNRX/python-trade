@@ -2,7 +2,6 @@
 Moduł zarządzania wszechświatem tickerów: filtry płynności i eligibility per date.
 """
 import pandas as pd
-from typing import Optional
 
 
 def eligible_mask_per_date(

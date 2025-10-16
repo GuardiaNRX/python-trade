@@ -1,8 +1,8 @@
 """
 Moduł approval: two-man rule dla produkcji.
 """
-import os
 import json
+import os
 
 
 def enforce_two_man(

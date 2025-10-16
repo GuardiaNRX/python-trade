@@ -2,10 +2,11 @@
 Moduł do tworzenia wykresów.
 """
 import os
-from typing import Tuple
-import pandas as pd
-import matplotlib.pyplot as plt
+
 import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+
 matplotlib.use('Agg')  # Backend bez GUI
 
 

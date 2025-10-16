@@ -1,10 +1,10 @@
 """
 Skrypt canary: pre-flight dry-run check przed produkcją.
 """
-import os
-import sys
-import subprocess
 import argparse
+import os
+import subprocess
+import sys
 
 sys.path.append(".")
 from utils.slack_client import post_message

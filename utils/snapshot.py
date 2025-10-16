@@ -1,11 +1,12 @@
 """
 Moduł snapshot: deterministyczne snapshoty danych wejściowych.
 """
-import os
-import json
 import hashlib
+import json
+import os
+from typing import Any, Dict
+
 import pandas as pd
-from typing import Dict, Any
 
 
 def _hash_df(df: pd.DataFrame) -> str:

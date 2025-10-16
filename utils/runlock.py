@@ -1,12 +1,12 @@
 """
 Moduł run-lock: zapobiega równoległym uruchomieniom pipeline.
 """
+import errno
+import json
 import os
 import time
-import json
-import errno
 from contextlib import contextmanager
-from typing import Dict, Any
+from typing import Any, Dict
 
 DEFAULT_LOCK = "backtests/results/job.lock"
 

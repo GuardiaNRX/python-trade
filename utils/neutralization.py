@@ -1,9 +1,10 @@
 """
 Moduł do neutralizacji faktora względem sektorów i rynku (beta).
 """
-import pandas as pd
-import numpy as np
 from typing import Dict, Optional
+
+import numpy as np
+import pandas as pd
 from scipy import stats
 from sklearn.linear_model import Ridge
 

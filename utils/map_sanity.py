@@ -1,9 +1,10 @@
 """
 Moduł map_sanity: walidacja symbol→exchange/region mapping.
 """
+from typing import List
+
 import pandas as pd
 import pandas_market_calendars as mcal
-from typing import List
 
 
 def validate_mapping(mapping: pd.DataFrame, symbols: List[str]) -> List[str]:

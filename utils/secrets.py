@@ -1,10 +1,10 @@
 """
 Moduł secrets: uniwersalny menedżer tajemnic (env/aws/gcp/vault).
 """
-import os
 import json
+import os
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
 
 @dataclass

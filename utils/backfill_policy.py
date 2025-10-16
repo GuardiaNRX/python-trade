@@ -1,7 +1,7 @@
 """
 Moduł backfill_policy: polityka reakcji na backfill danych.
 """
-from typing import Dict, Any, Literal
+from typing import Any, Dict, Literal
 
 
 def decide_backfill(

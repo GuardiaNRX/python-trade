@@ -1,17 +1,26 @@
 """
 Smoke test: metrics calculations
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.metrics import (
-    sharpe, sortino, calmar, max_drawdown, rank_ic,
-    information_ratio, alpha_beta, expected_shortfall, tail_ratio,
-    hit_rate, payoff_ratio
-)
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from utils.metrics import (
+    alpha_beta,
+    expected_shortfall,
+    hit_rate,
+    information_ratio,
+    max_drawdown,
+    payoff_ratio,
+    rank_ic,
+    sharpe,
+    sortino,
+    tail_ratio,
+)
 
 
 def test_sharpe():

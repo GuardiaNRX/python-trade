@@ -1,8 +1,8 @@
 """
 Moduł run_id: generowanie unikalnych ID dla runów pipeline.
 """
-import time
 import hashlib
+import time
 
 
 def make_run_id(cfg_hash: str, snapshot_id: str) -> str:

@@ -1,12 +1,14 @@
 """
 Moduł source_snapshot: snapshoty źródłowe per symbol + backfill detection.
 """
-import os
-import json
 import hashlib
+import json
+import os
+from typing import Any, Dict
+
 import pandas as pd
+
 from .atomic import atomic_write_text
-from typing import Dict, Any
 
 
 def _hash_df(df: pd.DataFrame) -> str:

@@ -3,16 +3,16 @@ Skrypt do generowania wartości faktora i rankingów.
 Zapisuje do data/factors/ pliki parquet: values, ranks, forward_returns.
 """
 import argparse
-import sys
 import os
+import sys
+
 import yaml
-import pandas as pd
 
 # Dodaj katalog główny do sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.data_io import load_prices
 from factors.momentum_12_1 import compute_factor, percentile_rank
+from utils.data_io import load_prices
 
 
 def main():
@@ -65,7 +65,7 @@ def main():
         factor_ranks.to_parquet(ranks_path)
         forward_returns.to_parquet(fwd_path)
         
-        print(f"Zapisano:")
+        print("Zapisano:")
         print(f"  - {values_path}")
         print(f"  - {ranks_path}")
         print(f"  - {fwd_path}")

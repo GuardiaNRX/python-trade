@@ -1,9 +1,9 @@
-"""
-Moduł do generowania wag portfela i zleceń.
+﻿"""
+ModuĹ‚ do generowania wag portfela i zleceĹ„.
 """
 from typing import Dict, Optional
+
 import pandas as pd
-import numpy as np
 
 
 def target_weights_from_ranks(
@@ -14,18 +14,18 @@ def target_weights_from_ranks(
     max_weight: float = 0.1
 ) -> pd.Series:
     """
-    Generuje docelowe wagi portfela na podstawie rankingów.
+    Generuje docelowe wagi portfela na podstawie rankingĂłw.
     
     Parameters:
     -----------
     ranks : pd.Series
-        Seria rankingów percentylowych (0-1)
+        Seria rankingĂłw percentylowych (0-1)
     top_quantile : float
-        Próg górny dla pozycji długich
+        PrĂłg gĂłrny dla pozycji dĹ‚ugich
     bottom_quantile : float
-        Próg dolny dla pozycji krótkich (jeśli long_only=False)
+        PrĂłg dolny dla pozycji krĂłtkich (jeĹ›li long_only=False)
     long_only : bool
-        Czy tylko pozycje długie
+        Czy tylko pozycje dĹ‚ugie
     max_weight : float
         Maksymalna waga pojedynczej pozycji
         
@@ -36,14 +36,14 @@ def target_weights_from_ranks(
     """
     weights = pd.Series(0.0, index=ranks.index)
     
-    # Pozycje długie
+    # Pozycje dĹ‚ugie
     long_mask = ranks >= top_quantile
     n_long = long_mask.sum()
     
     if long_only:
         if n_long > 0:
             weights[long_mask] = 1.0 / n_long
-            # Ogranicz maksymalną wagę
+            # Ogranicz maksymalnÄ… wagÄ™
             weights = weights.clip(upper=max_weight)
             # Renormalizuj
             if weights.sum() > 0:
@@ -58,7 +58,7 @@ def target_weights_from_ranks(
         if n_short > 0:
             weights[short_mask] = -0.5 / n_short
         
-        # Ogranicz maksymalną wagę
+        # Ogranicz maksymalnÄ… wagÄ™
         weights = weights.clip(lower=-max_weight, upper=max_weight)
     
     return weights
@@ -66,46 +66,45 @@ def target_weights_from_ranks(
 
 def rebalance_signal(index: pd.DatetimeIndex, freq: str = "M") -> pd.Series:
     """
-    Generuje sygnał rebalansowania portfela.
+    Generuje sygnaĹ‚ rebalansowania portfela.
 
-    Zwraca bool Series z True w dniach, w których powinien nastąpić rebalans.
-    Wspierane częstotliwości:
-    - "M" (Monthly): Pierwszy dzień każdego miesiąca
-    - "W" (Weekly): Pierwszy dzień każdego tygodnia (poniedziałek)
-    - "D" (Daily): Każdy dzień
+    Zwraca bool Series z True w dniach, w ktĂłrych powinien nastÄ…piÄ‡ rebalans.
+    Wspierane czÄ™stotliwoĹ›ci:
+    - "M" (Monthly): Pierwszy dzieĹ„ kaĹĽdego miesiÄ…ca
+    - "W" (Weekly): Pierwszy dzieĹ„ kaĹĽdego tygodnia (poniedziaĹ‚ek)
+    - "D" (Daily): KaĹĽdy dzieĹ„
 
     Parameters:
     -----------
     index : pd.DatetimeIndex
         Indeks dat z backtestingu
     freq : str
-        Częstotliwość rebalansowania: "M", "W", "D"
+        CzÄ™stotliwoĹ›Ä‡ rebalansowania: "M", "W", "D"
 
     Returns:
     --------
     pd.Series
-        Bool Series (index: datetime, wartości: True/False)
-        True oznacza dzień rebalansowania
+        Bool Series (index: datetime, wartoĹ›ci: True/False)
+        True oznacza dzieĹ„ rebalansowania
     """
     if freq == "D":
-        # Rebalansuj każdy dzień
+        # Rebalansuj kaĹĽdy dzieĹ„
         return pd.Series(True, index=index)
 
     elif freq == "W":
-        # Rebalansuj w poniedziałki (lub pierwszy dzień tygodnia)
-        is_monday = index.dayofweek == 0
-        # Alternatywnie: pierwszy dzień tygodnia w danych
+        # Rebalansuj w poniedziaĹ‚ki (lub pierwszy dzieĹ„ tygodnia)
+        # Alternatywnie: pierwszy dzieĹ„ tygodnia w danych
         week_num = index.isocalendar().week
         first_day_of_week = ~week_num.duplicated()
         return pd.Series(first_day_of_week, index=index)
 
     elif freq == "M":
-        # Rebalansuj pierwszego dnia miesiąca
+        # Rebalansuj pierwszego dnia miesiÄ…ca
         is_first_day = ~index.to_period('M').duplicated()
         return pd.Series(is_first_day, index=index)
 
     else:
-        raise ValueError(f"Nieobsługiwana częstotliwość rebalansowania: {freq}. Użyj 'M', 'W', lub 'D'.")
+        raise ValueError(f"NieobsĹ‚ugiwana czÄ™stotliwoĹ›Ä‡ rebalansowania: {freq}. UĹĽyj 'M', 'W', lub 'D'.")
 
 
 def apply_rebalance_weights(
@@ -119,14 +118,14 @@ def apply_rebalance_weights(
     eligibility_mask: Optional[pd.DataFrame] = None
 ) -> pd.DataFrame:
     """
-    Generuje wagi portfela z carry-over między rebalansami.
+    Generuje wagi portfela z carry-over miÄ™dzy rebalansami.
 
-    W dniach rebalansowania oblicza nowe wagi na podstawie rankingów.
+    W dniach rebalansowania oblicza nowe wagi na podstawie rankingĂłw.
     W dniach bez rebalansowania przenosi wagi z poprzedniego dnia (carry-over),
-    redukując turnover i koszty transakcyjne.
+    redukujÄ…c turnover i koszty transakcyjne.
 
-    Opcjonalnie stosuje maskę eligibilności (Point-in-Time) - w dniu rebalansowania
-    uwzględniane są tylko tickery z eligible=True.
+    Opcjonalnie stosuje maskÄ™ eligibilnoĹ›ci (Point-in-Time) - w dniu rebalansowania
+    uwzglÄ™dniane sÄ… tylko tickery z eligible=True.
 
     Parameters:
     -----------
@@ -134,30 +133,30 @@ def apply_rebalance_weights(
         DataFrame z rankingami percentylowymi (0-1)
         (index: datetime, kolumny: tickery)
     top_quantile : float
-        Próg górny dla pozycji długich (domyślnie 0.9)
+        PrĂłg gĂłrny dla pozycji dĹ‚ugich (domyĹ›lnie 0.9)
     bottom_quantile : float
-        Próg dolny dla pozycji krótkich (domyślnie 0.1)
+        PrĂłg dolny dla pozycji krĂłtkich (domyĹ›lnie 0.1)
     long_only : bool
-        Czy tylko pozycje długie (domyślnie True)
+        Czy tylko pozycje dĹ‚ugie (domyĹ›lnie True)
     max_weight : float
-        Maksymalna waga pojedynczej pozycji (domyślnie 0.1)
+        Maksymalna waga pojedynczej pozycji (domyĹ›lnie 0.1)
     cash_buffer : float
-        Bufory gotówkowy (0.0 = fully invested, domyślnie 0.0)
+        Bufory gotĂłwkowy (0.0 = fully invested, domyĹ›lnie 0.0)
     rebalance_flags : Optional[pd.Series]
         Bool Series z flagami rebalansowania (True = rebalansuj w tym dniu)
-        Jeśli None, rebalansuje każdy dzień
+        JeĹ›li None, rebalansuje kaĹĽdy dzieĹ„
     eligibility_mask : Optional[pd.DataFrame]
-        Bool DataFrame z eligibilnością (True = ticker eligible w danym dniu)
-        Jeśli None, nie stosuje filtrowania
+        Bool DataFrame z eligibilnoĹ›ciÄ… (True = ticker eligible w danym dniu)
+        JeĹ›li None, nie stosuje filtrowania
 
     Returns:
     --------
     pd.DataFrame
         DataFrame z wagami portfela (index: datetime, kolumny: tickery)
-        W dniach bez rebalansowania wagi są przenoszone z poprzedniego dnia
+        W dniach bez rebalansowania wagi sÄ… przenoszone z poprzedniego dnia
     """
     if rebalance_flags is None:
-        # Domyślnie rebalansuj każdy dzień
+        # DomyĹ›lnie rebalansuj kaĹĽdy dzieĹ„
         rebalance_flags = pd.Series(True, index=ranks.index)
 
     # Zainicjuj DataFrame dla wag
@@ -166,26 +165,26 @@ def apply_rebalance_weights(
 
     for date in ranks.index:
         if rebalance_flags.loc[date]:
-            # Dzień rebalansowania - oblicz nowe wagi
+            # DzieĹ„ rebalansowania - oblicz nowe wagi
             rank_row = ranks.loc[date]
 
-            # Aplikuj maskę eligibilności
+            # Aplikuj maskÄ™ eligibilnoĹ›ci
             if eligibility_mask is not None:
                 eligible = eligibility_mask.loc[date]
                 rank_row = rank_row[eligible]
 
-            # Usuń NaN
+            # UsuĹ„ NaN
             rank_row = rank_row.dropna()
 
             if len(rank_row) == 0:
-                # Brak eligible tickerów - zostaw poprzednie wagi lub zero
+                # Brak eligible tickerĂłw - zostaw poprzednie wagi lub zero
                 weights_df.loc[date] = prev_weights
                 continue
 
             # Generuj wagi
             weights = pd.Series(0.0, index=ranks.columns)
 
-            # Pozycje długie
+            # Pozycje dĹ‚ugie
             long_mask = rank_row >= top_quantile
             n_long = long_mask.sum()
 
@@ -193,7 +192,7 @@ def apply_rebalance_weights(
                 if n_long > 0:
                     target_weight = (1.0 - cash_buffer) / n_long
                     weights[long_mask.index[long_mask]] = target_weight
-                    # Ogranicz maksymalną wagę
+                    # Ogranicz maksymalnÄ… wagÄ™
                     weights = weights.clip(upper=max_weight)
                     # Renormalizuj
                     total = weights.sum()
@@ -211,14 +210,14 @@ def apply_rebalance_weights(
                 if n_short > 0:
                     weights[short_mask.index[short_mask]] = -gross_target / n_short
 
-                # Ogranicz maksymalną wagę
+                # Ogranicz maksymalnÄ… wagÄ™
                 weights = weights.clip(lower=-max_weight, upper=max_weight)
 
             weights_df.loc[date] = weights
             prev_weights = weights.copy()
 
         else:
-            # Dzień bez rebalansowania - carry-over poprzednich wag
+            # DzieĹ„ bez rebalansowania - carry-over poprzednich wag
             weights_df.loc[date] = prev_weights
 
     return weights_df
@@ -230,9 +229,9 @@ def orders_from_diff(
     portfolio_value: float
 ) -> pd.DataFrame:
     """
-    Generuje zlecenia na podstawie różnicy między obecnymi a docelowymi pozycjami.
+    Generuje zlecenia na podstawie rĂłĹĽnicy miÄ™dzy obecnymi a docelowymi pozycjami.
 
-    UWAGA: To jest szkic demo. W środowisku live wymaga realnych cen i pozycji.
+    UWAGA: To jest szkic demo. W Ĺ›rodowisku live wymaga realnych cen i pozycji.
 
     Parameters:
     -----------
@@ -241,7 +240,7 @@ def orders_from_diff(
     target_weights : pd.Series
         Docelowe wagi portfela
     portfolio_value : float
-        Obecna wartość portfela
+        Obecna wartoĹ›Ä‡ portfela
 
     Returns:
     --------
@@ -254,8 +253,8 @@ def orders_from_diff(
         target_value = target_weights[ticker] * portfolio_value
         current_shares = current_positions.get(ticker, 0.0)
 
-        # Uproszczenie: zakładamy cenę = 1.0 (wymaga realnej ceny!)
-        # W rzeczywistości: target_shares = target_value / current_price
+        # Uproszczenie: zakĹ‚adamy cenÄ™ = 1.0 (wymaga realnej ceny!)
+        # W rzeczywistoĹ›ci: target_shares = target_value / current_price
         target_shares = target_value  # DEMO
 
         diff = target_shares - current_shares

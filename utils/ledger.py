@@ -1,11 +1,11 @@
 """
 Moduł ledger: licznik eksperymentów dla Deflated Sharpe Ratio.
 """
-import os
-import json
 import hashlib
+import json
+import os
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def cfg_hash(cfg: Dict[str, Any]) -> str:

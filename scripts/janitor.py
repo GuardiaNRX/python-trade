@@ -1,11 +1,11 @@
 """
 Skrypt janitor: czyszczenie starych artefaktów (retencja).
 """
-import os
-import time
 import argparse
 import glob
+import os
 import shutil
+import time
 
 
 def _prune_by_days(path: str, days: int) -> None:

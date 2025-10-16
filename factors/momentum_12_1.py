@@ -2,7 +2,6 @@
 Moduł obliczający faktor momentum 12-1.
 """
 import pandas as pd
-import numpy as np
 
 
 def compute_factor(

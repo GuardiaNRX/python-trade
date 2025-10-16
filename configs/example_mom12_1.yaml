@@ -9,10 +9,9 @@ universe:
 
 data:
   source: yfinance
-  csv_dir: data
-  start: "2015-01-01"
-  end: null
-  min_coverage: 0.95
+  start: "2018-01-01"
+  end: "2025-10-15"
+  csv_dir: null
   region_thresholds:
     USA: 0.95
     EU: 0.90

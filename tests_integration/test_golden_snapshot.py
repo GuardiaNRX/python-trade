@@ -1,11 +1,10 @@
 """
 Test integracyjny golden snapshot: odtwarzalność pipeline.
 """
-import os
 import hashlib
-import subprocess
+import os
 import re
-
+import subprocess
 
 GOLD = "tests/golden/20250105_abc12345"  # Przykład snapshotu
 OUT = "backtests/reports"

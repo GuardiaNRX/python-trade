@@ -1,7 +1,8 @@
 """
 Moduł do cross-validation z purge i embargo.
 """
-from typing import Tuple, List
+from typing import List, Tuple
+
 import pandas as pd
 from mlfinlab.cross_validation import PurgedKFold
 
@@ -36,9 +37,6 @@ def purged_folds(
     # PurgedKFold wymaga pd.Series dla t1
     if not isinstance(t1, pd.Series):
         raise ValueError("t1 musi być pd.Series z indeksem datetime")
-    
-    # Oblicz embargo jako timedelta
-    embargo_td = pd.Timedelta(days=embargo_days)
     
     cv = PurgedKFold(
         n_splits=n_splits,

@@ -1,13 +1,15 @@
 """
 Smoke test: factor computation
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from factors.momentum_12_1 import compute_factor, percentile_rank
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from factors.momentum_12_1 import compute_factor, percentile_rank
 
 
 def test_compute_factor():

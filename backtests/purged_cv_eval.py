@@ -3,15 +3,14 @@ Skrypt do walidacji faktora metodą PurgedKFold.
 Oblicza Rank-IC na foldach train/test z purge i embargo.
 """
 import argparse
-import sys
 import os
-import yaml
+import sys
+
 import pandas as pd
-import numpy as np
+import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.cv import purged_folds
 from utils.metrics import rank_ic
 
 
@@ -55,14 +54,6 @@ def main():
         }).dropna()
         
         print(f"Valid samples: {len(df)}")
-        
-        # Przygotuj X i t1 dla PurgedKFold
-        # t1 = end time każdej próbki (tutaj uproszczone: date + 21 dni)
-        X = df[['factor']]
-        t1 = pd.Series(
-            X.index.get_level_values(0) + pd.Timedelta(days=21),
-            index=X.index
-        )
         
         # UWAGA: mlfinlab.PurgedKFold może wymagać specyficznego formatu
         # To jest uproszczona wersja - w produkcji dostosuj do API mlfinlab

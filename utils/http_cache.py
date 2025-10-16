@@ -3,8 +3,9 @@ Moduł HTTP cache dla yfinance: cache + retry + timeout.
 """
 import os
 import time
+from typing import List, Optional, Tuple
+
 import pandas as pd
-from typing import Tuple, Optional, List
 
 
 def _cache_dir() -> str:
@@ -33,6 +34,7 @@ def _fetch_yf(sym: str, start: Optional[str], end: Optional[str], timeout: int =
         DataFrame OHLCV
     """
     import yfinance as yf
+    _ = timeout  # placeholder until yfinance exposes timeout
     # yfinance nie ma bezpośredniego timeoutu; rely on underlying requests default
     return yf.Ticker(sym).history(start=start, end=end, auto_adjust=False)
 

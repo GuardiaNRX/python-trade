@@ -1,11 +1,11 @@
 """
 Skrypt healthcheck: sprawdza, czy ostatni raport nie jest zbyt stary.
 """
-import sys
-import os
-import glob
-import time
 import argparse
+import glob
+import os
+import sys
+import time
 
 
 def main(out_dir: str = "backtests/reports", max_age_min: int = 120):

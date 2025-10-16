@@ -1,9 +1,10 @@
 """
 Moduł zarządzania ryzykiem: vol-targeting i drawdown clamp.
 """
-import pandas as pd
-import numpy as np
 from typing import Literal
+
+import numpy as np
+import pandas as pd
 
 
 def ewma_vol(series: pd.Series, halflife: int = 20) -> pd.Series:

@@ -1,11 +1,12 @@
 """
 Moduł cost_params: wybór k/γ per symbol na podstawie segmentacji.
 """
-import os
 import json
+import os
+from typing import Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Tuple, Optional
 
 
 def _load_json(path: str) -> dict:

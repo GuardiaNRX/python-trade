@@ -8,16 +8,15 @@ OSTRZEŻENIE: To jest szkic demo. Przed użyciem w środowisku live/paper:
 4. Sprawdź limity ryzyka
 5. Upewnij się, że masz odpowiednie uprawnienia i konfigurację IBKR
 """
+import argparse
 import os
 import sys
-import time
-import argparse
+
 import yaml
-from datetime import datetime
 from dotenv import load_dotenv
 
 try:
-    from ib_insync import IB, Stock, MarketOrder, LimitOrder
+    from ib_insync import IB
 except ImportError:
     print("BŁĄD: ib_insync nie jest zainstalowany. Uruchom: pip install ib-insync")
     sys.exit(1)
@@ -86,7 +85,7 @@ def main():
         )
 
         # Pobierz pozycje
-        positions = get_portfolio_positions(ib)
+        get_portfolio_positions(ib)
 
         # Demo: pobierz wartość konta
         account_values = ib.accountSummary()

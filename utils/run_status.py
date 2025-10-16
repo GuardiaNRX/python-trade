@@ -1,11 +1,10 @@
+﻿"""
+ModuĹ‚ Ĺ›ledzenia statusu runu (running/ok/failed/degraded).
 """
-Moduł śledzenia statusu runu (running/ok/failed/degraded).
-"""
-import os
-import json
 import datetime
-from typing import Dict, Any, Optional, List
-
+import json
+import os
+from typing import Any, Dict, List, Optional
 
 STATUS_FILE = "backtests/results/run_status.json"
 HIST_FILE = "backtests/results/run_status_history.jsonl"
@@ -48,12 +47,12 @@ def finalize_run(
     reasons: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
-    Finalizuje run - ustawia status końcowy.
+    Finalizuje run - ustawia status koĹ„cowy.
 
     Args:
         run_id: ID runu
-        status: Status końcowy (ok/failed/degraded)
-        reasons: Lista powodów
+        status: Status koĹ„cowy (ok/failed/degraded)
+        reasons: Lista powodĂłw
 
     Returns:
         Dict ze statusem
@@ -77,3 +76,6 @@ def finalize_run(
         f.write(json.dumps(st) + "\n")
 
     return st
+
+# Alias for backwards compatibility
+end_run = finalize_run

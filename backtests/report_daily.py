@@ -4,63 +4,82 @@ Pipeline kompletny: filtry płynności, kalendarz sesji, neutralizacja, impact, 
 Generuje metryki Priorytetu A, wykresy i wysyła raport na Slack.
 """
 import argparse
-import sys
 import os
+import sys
 import time
 from datetime import datetime
-import yaml
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+import yaml
 from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # INSERT HERE — IMPORTS (nowe moduły z 104.md)
-from utils.data_io import load_ohlcv
-from utils.snapshot import save_snapshot
-from utils.atomic import atomic_write_text
-from utils.run_id import make_run_id
-from utils.ledger import cfg_hash as _cfg_hash
+from factors.momentum_12_1 import compute_factor, percentile_rank
 from utils.approval import enforce_two_man
-from utils.risk_limits import (
-    enforce_gross_limit, enforce_single_name_limit, limit_turnover, kill_switch_by_drawdown
-)
-from utils.order_throttle import apply_throttle
-from utils.orders_state import save_plan, cancel_file_for_last_run
-from utils.diff_planner import delta_from_positions
-from utils.monitor import SLO, alert_thresholds
-from utils.runlock import run_lock
-from utils.universe import eligible_mask_per_date, birth_death_mask
-from utils.exec_policy import plan_twap
-from utils.spread_robust import robust_cs_spread
-from utils.cost_params import k_gamma_today
-from utils.ic_regime_state import ICRegimeCfg as ICRegimeCfgH, decide_multiplier
+from utils.atomic import atomic_write_text
+from utils.calendar import compute_forward_returns_sessions
+from utils.calibration import calibrate_costs
 from utils.config_schema import validate_config
+from utils.cost_params import k_gamma_today
+from utils.costs import apply_costs
+from utils.data_io import load_ohlcv
+from utils.diff_planner import delta_from_positions
+from utils.exec_policy import plan_twap
+from utils.execution import apply_rebalance_weights, rebalance_signal
+from utils.freshness_multi import region_freshness_gate
+from utils.ic_regime_state import ICRegimeCfg as ICRegimeCfgH
+from utils.ic_regime_state import decide_multiplier
+from utils.impact import (
+    capacity_violations,
+    compute_adv_usd,
+    compute_dollars_traded,
+    spread_cost_fraction,
+    square_root_impact_cost,
+)
+from utils.ledger import cfg_hash as _cfg_hash
+from utils.logger_json import log_json
+from utils.map_sanity import validate_mapping
+from utils.metrics import (
+    alpha_beta,
+    calmar,
+    deflated_sharpe_ratio_v2,
+    expected_shortfall,
+    hit_rate,
+    information_ratio,
+    max_drawdown,
+    payoff_ratio,
+    rank_ic,
+    rolling_rank_ic,
+    sharpe,
+    sortino,
+    tail_ratio,
+    turnover,
+)
+from utils.monitor import SLO, alert_thresholds
+from utils.neutralization import load_sector_map, ridge_sector_beta_residuals, rolling_beta
+from utils.order_throttle import apply_throttle
+from utils.orders_state import cancel_file_for_last_run, save_plan
+from utils.pbo import compute_pbo_simple
+from utils.plotting import equity_curve, histogram_returns, rolling_ic_plot
+from utils.reporting import ensure_dir
+from utils.risk_limits import (
+    enforce_gross_limit,
+    enforce_single_name_limit,
+    kill_switch_by_drawdown,
+    limit_turnover,
+)
+from utils.run_id import make_run_id
+from utils.run_status import end_run, start_run
+from utils.runlock import run_lock
 from utils.runtime_sla import RuntimeBudget
 from utils.slack_client import post_message, upload_file
-from utils.calendar import compute_forward_returns_sessions
-from utils.neutralization import ridge_sector_beta_residuals, rolling_beta, load_sector_map
-from utils.calibration import calibrate_costs
-from utils.logger_json import log_json
-from utils.run_status import start_run, end_run
-from factors.momentum_12_1 import compute_factor, percentile_rank
-from utils.metrics import (
-    sharpe, sortino, calmar, max_drawdown, rank_ic, turnover, deflated_sharpe_ratio_v2,
-    information_ratio, alpha_beta, expected_shortfall, tail_ratio,
-    hit_rate, payoff_ratio, rolling_rank_ic
-)
-from utils.costs import apply_costs
-from utils.impact import (
-    compute_adv_usd, square_root_impact_cost, capacity_violations, compute_dollars_traded,
-    spread_cost_fraction
-)
-from utils.execution import apply_rebalance_weights, rebalance_signal
-from utils.reporting import ensure_dir
-from utils.plotting import equity_curve, histogram_returns, rolling_ic_plot
 from utils.slo_history import append_slo, rolling_warn
-from utils.pbo import compute_pbo_simple
-from utils.freshness_multi import region_freshness_gate
-from utils.map_sanity import validate_mapping
+from utils.snapshot import save_snapshot
+from utils.spread_robust import robust_cs_spread
+from utils.universe import birth_death_mask, eligible_mask_per_date
 
 
 def main():
@@ -546,7 +565,8 @@ def main():
                 ir = information_ratio(portfolio_returns_net, bench_ret, freq=252)
                 alpha, beta = alpha_beta(portfolio_returns_net, bench_ret, freq=252)
                 print(f"  IR: {ir:.4f}, Alpha: {alpha:.2%}, Beta: {beta:.2f}")
-            except:
+            except Exception as e:
+                print(f"  OSTRZEŻENIE: Benchmark '{bench_ticker}' niedostępny lub błędny: {e}")
                 ir, alpha, beta = 0.0, 0.0, 0.0
         else:
             ir, alpha, beta = 0.0, 0.0, 0.0
@@ -572,7 +592,7 @@ def main():
             # Fallback: Δw
             delta_w = weights.iloc[-1] - weights.iloc[-2] if len(weights) > 1 else weights.iloc[-1]
             delta_dollars = (delta_w * initial_equity * prices.iloc[-1]).fillna(0.0)
-            print(f"  Delta obliczona z różnicy wag (fallback).")
+            print("  Delta obliczona z różnicy wag (fallback).")
 
         # b) Plan TWAP
         common_cols = prices.columns.intersection(adv_usd.columns).intersection(spr.columns)

@@ -1,14 +1,16 @@
 """
 Smoke test: report generation
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.reporting import ensure_dir, write_markdown
-from utils.plotting import equity_curve, histogram_returns, rolling_ic_plot
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from utils.plotting import equity_curve, histogram_returns, rolling_ic_plot
+from utils.reporting import ensure_dir, write_markdown
 
 
 def test_ensure_dir():

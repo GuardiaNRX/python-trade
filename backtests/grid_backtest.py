@@ -2,10 +2,11 @@
 Skrypt do szybkiego backtestingu strategii przy użyciu vectorbt.
 """
 import argparse
-import sys
 import os
-import yaml
+import sys
+
 import pandas as pd
+import yaml
 from tabulate import tabulate
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

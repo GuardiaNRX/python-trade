@@ -1,9 +1,10 @@
 """
 Moduł freshness-gate: sprawdza świeżość danych (fail-closed).
 """
+from typing import Tuple
+
 import pandas as pd
 import pandas_market_calendars as mcal
-from typing import Tuple
 
 
 def expected_last_session(

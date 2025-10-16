@@ -1,9 +1,9 @@
+﻿"""
+ModuĹ‚ z funkcjami obliczajÄ…cymi metryki efektywnoĹ›ci strategii.
 """
-Moduł z funkcjami obliczającymi metryki efektywności strategii.
-"""
+
 import numpy as np
 import pandas as pd
-from typing import Union
 from scipy import stats
 
 
@@ -14,9 +14,9 @@ def sharpe(returns: pd.Series, freq: int = 252) -> float:
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
     freq : int
-        Częstotliwość roczna (252 dla dni, 12 dla miesięcy)
+        CzÄ™stotliwoĹ›Ä‡ roczna (252 dla dni, 12 dla miesiÄ™cy)
         
     Returns:
     --------
@@ -35,9 +35,9 @@ def calmar(returns: pd.Series, freq: int = 252) -> float:
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
     freq : int
-        Częstotliwość roczna
+        CzÄ™stotliwoĹ›Ä‡ roczna
         
     Returns:
     --------
@@ -59,12 +59,12 @@ def max_drawdown(returns: pd.Series) -> float:
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
         
     Returns:
     --------
     float
-        Maksymalny drawdown (wartość ujemna)
+        Maksymalny drawdown (wartoĹ›Ä‡ ujemna)
     """
     cumulative = (1 + returns).cumprod()
     running_max = cumulative.expanding().max()
@@ -81,16 +81,16 @@ def rank_ic(factor_series: pd.Series, fwd_series: pd.Series) -> float:
     Parameters:
     -----------
     factor_series : pd.Series
-        Wartości faktora
+        WartoĹ›ci faktora
     fwd_series : pd.Series
-        Przyszłe zwroty
+        PrzyszĹ‚e zwroty
         
     Returns:
     --------
     float
         Rank IC
     """
-    # Usuń NaN
+    # UsuĹ„ NaN
     valid = pd.DataFrame({"factor": factor_series, "fwd": fwd_series}).dropna()
     
     if len(valid) < 2:
@@ -112,7 +112,7 @@ def turnover(weights: pd.DataFrame) -> pd.Series:
     Returns:
     --------
     pd.Series
-        Seria turnover dla każdej daty
+        Seria turnover dla kaĹĽdej daty
     """
     weight_changes = weights.diff().abs().sum(axis=1)
     return weight_changes
@@ -127,14 +127,14 @@ def deflated_sharpe_ratio(
     """
     Oblicza Deflated Sharpe Ratio (DSR) wg de Prado.
 
-    DSR koryguje Sharpe o wielokrotne testowanie i właściwości rozkładu zwrotów.
+    DSR koryguje Sharpe o wielokrotne testowanie i wĹ‚aĹ›ciwoĹ›ci rozkĹ‚adu zwrotĂłw.
 
-    Formuła przybliżona:
+    FormuĹ‚a przybliĹĽona:
     DSR = (SR * sqrt(n - 1)) / sqrt(1 + (1 - skew*SR + (kurt-1)/4 * SR^2))
 
-    Założenia:
-    - skew: skośność rozkładu zwrotów (0 = rozkład symetryczny)
-    - kurt: kurtoza rozkładu zwrotów (3 = rozkład normalny)
+    ZaĹ‚oĹĽenia:
+    - skew: skoĹ›noĹ›Ä‡ rozkĹ‚adu zwrotĂłw (0 = rozkĹ‚ad symetryczny)
+    - kurt: kurtoza rozkĹ‚adu zwrotĂłw (3 = rozkĹ‚ad normalny)
     - n: liczba obserwacji
 
     Parameters:
@@ -144,9 +144,9 @@ def deflated_sharpe_ratio(
     n : int
         Liczba obserwacji
     skew : float
-        Skośność rozkładu zwrotów (domyślnie 0)
+        SkoĹ›noĹ›Ä‡ rozkĹ‚adu zwrotĂłw (domyĹ›lnie 0)
     kurt : float
-        Kurtoza rozkładu zwrotów (domyślnie 3)
+        Kurtoza rozkĹ‚adu zwrotĂłw (domyĹ›lnie 3)
 
     Returns:
     --------
@@ -156,7 +156,7 @@ def deflated_sharpe_ratio(
     if n <= 1:
         return 0.0
 
-    # Formuła uproszczona de Prado
+    # FormuĹ‚a uproszczona de Prado
     sr_sq = sharpe ** 2
     denominator = 1 + (1 - skew * sharpe + (kurt - 1) / 4 * sr_sq)
 
@@ -175,18 +175,18 @@ def deflated_sharpe_ratio_v2(
     trials: int = 1
 ) -> float:
     """
-    Oblicza Deflated Sharpe Ratio (DSR) v2 z korektą na multiple testing.
+    Oblicza Deflated Sharpe Ratio (DSR) v2 z korektÄ… na multiple testing.
 
-    Wersja rozszerzona z korektą na wielokrotne testowanie (trials).
-    Używa formuły Lopez de Prado z "Advances in Financial Machine Learning".
+    Wersja rozszerzona z korektÄ… na wielokrotne testowanie (trials).
+    UĹĽywa formuĹ‚y Lopez de Prado z "Advances in Financial Machine Learning".
 
-    Formuła:
+    FormuĹ‚a:
     1. Oblicz SR0 (expected SR pod H0):
-       SR0 = sqrt(V[SR]) * ((1 - γ) * Φ^(-1)(1 - 1/trials) + γ * Φ^(-1)(1 - 1/(trials*e)))
-       gdzie γ = skewness korygująca, V[SR] to wariancja SR
+       SR0 = sqrt(V[SR]) * ((1 - Îł) * Î¦^(-1)(1 - 1/trials) + Îł * Î¦^(-1)(1 - 1/(trials*e)))
+       gdzie Îł = skewness korygujÄ…ca, V[SR] to wariancja SR
 
-    2. DSR = Φ((SR - SR0) / sqrt(V[SR]))
-       gdzie Φ to CDF rozkładu normalnego
+    2. DSR = Î¦((SR - SR0) / sqrt(V[SR]))
+       gdzie Î¦ to CDF rozkĹ‚adu normalnego
 
     V[SR] = (1 + (1 - skew*SR + (kurt-3)/4 * SR^2)) / (n - 1)
 
@@ -197,22 +197,22 @@ def deflated_sharpe_ratio_v2(
     n : int
         Liczba obserwacji
     skew : float
-        Skośność rozkładu zwrotów (domyślnie 0.0)
+        SkoĹ›noĹ›Ä‡ rozkĹ‚adu zwrotĂłw (domyĹ›lnie 0.0)
     kurt : float
-        Kurtoza rozkładu zwrotów (domyślnie 3.0)
+        Kurtoza rozkĹ‚adu zwrotĂłw (domyĹ›lnie 3.0)
     trials : int
-        Liczba prób/testów (domyślnie 1, dla multiple testing > 1)
+        Liczba prĂłb/testĂłw (domyĹ›lnie 1, dla multiple testing > 1)
 
     Returns:
     --------
     float
-        Deflated Sharpe Ratio z korektą na multiple testing
-        (p-value transformed, wartość ~0.5 = neutralne, >0.5 = istotne statystycznie)
+        Deflated Sharpe Ratio z korektÄ… na multiple testing
+        (p-value transformed, wartoĹ›Ä‡ ~0.5 = neutralne, >0.5 = istotne statystycznie)
     """
     if n <= 2 or trials < 1:
         return 0.0
 
-    # Oblicz wariancję SR
+    # Oblicz wariancjÄ™ SR
     var_sr = (1.0 + (1.0 - skew * sr + (kurt - 3.0) / 4.0 * sr**2)) / (n - 1)
 
     if var_sr <= 0:
@@ -224,19 +224,19 @@ def deflated_sharpe_ratio_v2(
     e = np.e
 
     # Gamma (Euler-Mascheroni constant approximation)
-    # W uproszczonej wersji używamy gamma = skew / std_sr jako heurystyki
-    # Dla dokładniejszej implementacji: gamma z literatury Lopez de Prado
+    # W uproszczonej wersji uĹĽywamy gamma = skew / std_sr jako heurystyki
+    # Dla dokĹ‚adniejszej implementacji: gamma z literatury Lopez de Prado
     gamma = 0.5772156649  # Euler-Mascheroni constant
 
     # Oblicz SR0 (expected SR under H0 with multiple testing correction)
-    # Używamy inverse CDF (percent point function) z scipy.stats.norm
+    # UĹĽywamy inverse CDF (percent point function) z scipy.stats.norm
     from scipy.stats import norm
 
     if trials == 1:
         # Bez korekty na multiple testing
         sr0 = 0.0
     else:
-        # Z korektą na multiple testing
+        # Z korektÄ… na multiple testing
         z1 = norm.ppf(1.0 - 1.0 / trials)
         z2 = norm.ppf(1.0 - 1.0 / (trials * e))
         sr0 = std_sr * ((1.0 - gamma) * z1 + gamma * z2)
@@ -252,16 +252,16 @@ def sortino(returns: pd.Series, freq: int = 252, target: float = 0.0) -> float:
     """
     Oblicza Sortino Ratio.
 
-    Używa tylko downside deviation (zwroty poniżej target).
+    UĹĽywa tylko downside deviation (zwroty poniĹĽej target).
 
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
     freq : int
-        Częstotliwość roczna
+        CzÄ™stotliwoĹ›Ä‡ roczna
     target : float
-        Target return (domyślnie 0.0)
+        Target return (domyĹ›lnie 0.0)
 
     Returns:
     --------
@@ -289,23 +289,23 @@ def information_ratio(
     """
     Oblicza Information Ratio (IR).
 
-    IR = (średni nadmiarowy zwrot) / (tracking error)
+    IR = (Ĺ›redni nadmiarowy zwrot) / (tracking error)
 
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów strategii
+        Seria zwrotĂłw strategii
     bench_returns : pd.Series
-        Seria zwrotów benchmarku
+        Seria zwrotĂłw benchmarku
     freq : int
-        Częstotliwość roczna
+        CzÄ™stotliwoĹ›Ä‡ roczna
 
     Returns:
     --------
     float
         Information Ratio
     """
-    # Wyrównaj indeksy
+    # WyrĂłwnaj indeksy
     common_idx = returns.index.intersection(bench_returns.index)
     if len(common_idx) == 0:
         return 0.0
@@ -328,23 +328,23 @@ def alpha_beta(
     freq: int = 252
 ) -> tuple:
     """
-    Oblicza alpha i beta względem benchmarku.
+    Oblicza alpha i beta wzglÄ™dem benchmarku.
 
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów strategii
+        Seria zwrotĂłw strategii
     bench_returns : pd.Series
-        Seria zwrotów benchmarku
+        Seria zwrotĂłw benchmarku
     freq : int
-        Częstotliwość roczna
+        CzÄ™stotliwoĹ›Ä‡ roczna
 
     Returns:
     --------
     tuple
         (alpha_annualized, beta)
     """
-    # Wyrównaj indeksy
+    # WyrĂłwnaj indeksy
     common_idx = returns.index.intersection(bench_returns.index)
     if len(common_idx) < 2:
         return (0.0, 0.0)
@@ -366,19 +366,19 @@ def expected_shortfall(returns: pd.Series, confidence: float = 0.95) -> float:
     """
     Oblicza Expected Shortfall (ES) / Conditional VaR.
 
-    ES = średnia ze zwrotów poniżej VaR.
+    ES = Ĺ›rednia ze zwrotĂłw poniĹĽej VaR.
 
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
     confidence : float
-        Poziom ufności (domyślnie 0.95)
+        Poziom ufnoĹ›ci (domyĹ›lnie 0.95)
 
     Returns:
     --------
     float
-        Expected Shortfall (wartość ujemna)
+        Expected Shortfall (wartoĹ›Ä‡ ujemna)
     """
     if len(returns) == 0:
         return 0.0
@@ -400,7 +400,7 @@ def tail_ratio(returns: pd.Series) -> float:
     Parameters:
     -----------
     returns : pd.Series
-        Seria zwrotów
+        Seria zwrotĂłw
 
     Returns:
     --------
@@ -422,21 +422,21 @@ def tail_ratio(returns: pd.Series) -> float:
 
 def hit_rate(factor: pd.Series, forward_returns: pd.Series) -> float:
     """
-    Oblicza Hit Rate (% przypadków gdy factor i fwd_ret mają ten sam znak).
+    Oblicza Hit Rate (% przypadkĂłw gdy factor i fwd_ret majÄ… ten sam znak).
 
     Parameters:
     -----------
     factor : pd.Series
-        Seria wartości faktora
+        Seria wartoĹ›ci faktora
     forward_returns : pd.Series
-        Seria przyszłych zwrotów
+        Seria przyszĹ‚ych zwrotĂłw
 
     Returns:
     --------
     float
         Hit Rate (0-1)
     """
-    # Wspólny indeks
+    # WspĂłlny indeks
     common_idx = factor.index.intersection(forward_returns.index)
     if len(common_idx) == 0:
         return 0.0
@@ -444,12 +444,12 @@ def hit_rate(factor: pd.Series, forward_returns: pd.Series) -> float:
     fac = factor.loc[common_idx]
     fwd = forward_returns.loc[common_idx]
 
-    # Usuń NaN
+    # UsuĹ„ NaN
     valid = pd.DataFrame({"f": fac, "fwd": fwd}).dropna()
     if len(valid) == 0:
         return 0.0
 
-    # Zgodność znaku
+    # ZgodnoĹ›Ä‡ znaku
     same_sign = np.sign(valid["f"]) == np.sign(valid["fwd"])
     hit = same_sign.sum() / len(same_sign)
 
@@ -458,14 +458,14 @@ def hit_rate(factor: pd.Series, forward_returns: pd.Series) -> float:
 
 def payoff_ratio(factor: pd.Series, forward_returns: pd.Series) -> float:
     """
-    Oblicza Payoff Ratio = (średni zysk przy trafieniu) / (średnia strata przy błędzie).
+    Oblicza Payoff Ratio = (Ĺ›redni zysk przy trafieniu) / (Ĺ›rednia strata przy bĹ‚Ä™dzie).
 
     Parameters:
     -----------
     factor : pd.Series
-        Seria wartości faktora
+        Seria wartoĹ›ci faktora
     forward_returns : pd.Series
-        Seria przyszłych zwrotów
+        Seria przyszĹ‚ych zwrotĂłw
 
     Returns:
     --------
@@ -483,7 +483,7 @@ def payoff_ratio(factor: pd.Series, forward_returns: pd.Series) -> float:
     if len(valid) == 0:
         return 0.0
 
-    # Zgodność znaku
+    # ZgodnoĹ›Ä‡ znaku
     same_sign = np.sign(valid["f"]) == np.sign(valid["fwd"])
 
     wins = valid.loc[same_sign, "fwd"]
@@ -508,21 +508,21 @@ def rolling_rank_ic(
     window: int = 60
 ) -> pd.Series:
     """
-    Oblicza rolling Rank IC (Spearman correlation) między faktorem a forward returns.
+    Oblicza rolling Rank IC (Spearman correlation) miÄ™dzy faktorem a forward returns.
 
     Parameters:
     -----------
     factor : pd.DataFrame
-        DataFrame z wartościami faktora (index: datetime, kolumny: tickery)
+        DataFrame z wartoĹ›ciami faktora (index: datetime, kolumny: tickery)
     forward_returns : pd.DataFrame
         DataFrame z forward returns
     window : int
-        Okno rolling w dniach (domyślnie 60)
+        Okno rolling w dniach (domyĹ›lnie 60)
 
     Returns:
     --------
     pd.Series
-        Seria z rolling Rank IC dla każdej daty
+        Seria z rolling Rank IC dla kaĹĽdej daty
     """
     ic_series = pd.Series(index=factor.index, dtype=float)
 
@@ -535,7 +535,7 @@ def rolling_rank_ic(
         fac_flat = window_factor.stack()
         fwd_flat = window_fwd.stack()
 
-        # Wspólny indeks
+        # WspĂłlny indeks
         valid = pd.DataFrame({"f": fac_flat, "fwd": fwd_flat}).dropna()
 
         if len(valid) < 2:
@@ -545,7 +545,7 @@ def rolling_rank_ic(
         try:
             corr, _ = stats.spearmanr(valid["f"], valid["fwd"])
             ic_series.iloc[i] = corr
-        except:
+        except Exception:
             continue
 
     return ic_series

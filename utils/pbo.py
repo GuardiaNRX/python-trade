@@ -6,10 +6,11 @@ Implementacja oparta na metodologii Lopez de Prado:
 
 PBO używa Combinatorially Symmetric Cross-Validation (CSCV) do wykrywania overfittingu.
 """
+from itertools import combinations
+from typing import Dict
+
 import numpy as np
 import pandas as pd
-from typing import Tuple, Dict
-from itertools import combinations
 
 
 def compute_pbo_cscv(

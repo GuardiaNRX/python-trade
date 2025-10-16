@@ -1,8 +1,9 @@
 """
 Moduł universe drift: wykrywa dodane/usunięte tickery day-over-day.
 """
-import pandas as pd
 from typing import Dict, List, Union
+
+import pandas as pd
 
 
 def universe_drift(

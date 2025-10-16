@@ -1,9 +1,9 @@
 """
 Moduł structured logging (JSONL) dla pipeline.
 """
-import os
-import json
 import datetime
+import json
+import os
 
 
 def _log_path() -> str:
